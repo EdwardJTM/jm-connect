@@ -30,8 +30,8 @@ class Command(BaseCommand):
             self.stdout.write(f'{variable} is not set, so no key was created.')
             return
         prefix, _, secret = key.partition('.')
-        if len(prefix) < 8 or len(secret) < 32:
-            raise CommandError(f'{variable} must look like prefix.secret, with at least 8 and 32 characters.')
+        if len(prefix) != 8 or len(secret) < 32:
+            raise CommandError(f'{variable} must look like prefix.secret, with exactly 8 and at least 32 characters.')
         hashed = SystemAPIKey.objects.key_generator.hash(key)
         SystemAPIKey.objects.update_or_create(
             prefix=prefix,
