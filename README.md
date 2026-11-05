@@ -34,7 +34,7 @@ On a host with no shell, such as Render's free plan, generate a value and set it
 systems. Then have the receiving system's build run the command below, which is safe on every deploy:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(8) + '.' + secrets.token_urlsafe(32))"
+python -c "import secrets; print(secrets.token_hex(4) + '.' + secrets.token_urlsafe(32))"
 python manage.py create_system_key jm-hub --scopes handoff --from-env JM_HUB_KEY
 ```
 

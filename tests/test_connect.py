@@ -86,6 +86,10 @@ class KeyFromEnvTests(HandoffTestCase):
         with self.assertRaises(CommandError):
             self.run_command(value='a.b')
 
+    def test_prefix_longer_than_the_database_column_is_refused(self):
+        with self.assertRaises(CommandError):
+            self.run_command(value='abcdefghijk.' + 'x' * 32)
+
 
 class SignInTests(HandoffTestCase):
     def test_link_signs_the_person_in_and_goes_home(self):
