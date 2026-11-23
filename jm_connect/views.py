@@ -68,6 +68,7 @@ def enter(request, token):
             content_type='text/plain',
         )
     login(request, user, backend=settings.AUTHENTICATION_BACKENDS[0])
-    response = redirect(resolve_url(settings.LOGIN_REDIRECT_URL))
+    landing = getattr(settings, 'JM_CONNECT_REDIRECT_URL', '') or settings.LOGIN_REDIRECT_URL
+    response = redirect(resolve_url(landing))
     response['Referrer-Policy'] = 'no-referrer'
     return response

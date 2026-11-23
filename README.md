@@ -23,6 +23,9 @@ urlpatterns += [path('', include('jm_connect.urls'))]
 
 Run `python manage.py migrate`. Give each system its own `SESSION_COOKIE_NAME` and `CSRF_COOKIE_NAME`.
 
+People arrive at `LOGIN_REDIRECT_URL`. If that is the Django admin but staff work elsewhere, set
+`JM_CONNECT_REDIRECT_URL = '/'` to send people from the hub there instead.
+
 ## Keys
 
 The system receiving the calls creates the key. It is printed once and stored only as a hash.

@@ -97,6 +97,10 @@ class SignInTests(HandoffTestCase):
         self.assertRedirects(response, '/home/', fetch_redirect_response=False)
         self.assertEqual(self.client.get('/home/').content.decode(), 'edward')
 
+    @override_settings(JM_CONNECT_REDIRECT_URL='/start/')
+    def test_system_can_choose_where_people_land(self):
+        self.assertRedirects(self.client.get(self.link()), '/start/', fetch_redirect_response=False)
+
     def test_link_works_only_once(self):
         link = self.link()
         self.client.get(link)
