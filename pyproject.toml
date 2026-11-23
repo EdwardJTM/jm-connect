@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jm-connect"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lets Junior Marima systems call each other with API keys and hand staff over with one-time sign-in links."
 requires-python = ">=3.10"
 dependencies = [

@@ -7,7 +7,7 @@ import requests
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from jm_connect.client import SystemUnavailable, system
@@ -21,10 +21,10 @@ class HandoffTestCase(TestCase):
         self.user = User.objects.create_user('edward', password='a-long-test-password')
         _, self.key = SystemAPIKey.objects.create_key(name='jm-hub', scopes=['handoff'])
 
-    def ask(self, username='edward', key=None):
+    def ask(self, username='edward', key=None, **extra):
         return self.client.post(
             '/api/v1/handoff/',
-            data=json.dumps({'username': username}),
+            data=json.dumps({'username': username, **extra}),
             content_type='application/json',
             headers={'Authorization': f'Api-Key {key or self.key}'},
         )
@@ -133,6 +133,63 @@ class SignInTests(HandoffTestCase):
         HandoffToken.objects.update(expires_at=timezone.now() - timedelta(days=1))
         self.link()
         self.assertEqual(HandoffToken.objects.count(), 1)
+
+
+@override_settings(JM_CONNECT_APPLY_ROLE='tests.roles.apply_role')
+class LevelTests(HandoffTestCase):
+    def roles(self, username='edward'):
+        return list(User.objects.get(username=username).groups.values_list('name', flat=True))
+
+    def test_level_from_the_hub_is_applied(self):
+        self.assertEqual(self.ask(role='clerk').status_code, 200)
+        self.assertEqual(self.roles(), ['clerk'])
+
+    def test_a_new_level_replaces_the_old_one(self):
+        self.ask(role='clerk')
+        self.ask(role='manager')
+        self.assertEqual(self.roles(), ['manager'])
+
+    def test_unknown_level_is_refused_and_changes_nothing(self):
+        self.ask(role='clerk')
+        response = self.ask(role='owner')
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn('url', response.json())
+        self.assertEqual(self.roles(), ['clerk'])
+
+    def test_no_level_leaves_roles_alone(self):
+        self.ask(role='clerk')
+        self.assertEqual(self.ask().status_code, 200)
+        self.assertEqual(self.roles(), ['clerk'])
+
+    @override_settings(JM_CONNECT_APPLY_ROLE='')
+    def test_system_without_a_hook_ignores_the_level(self):
+        self.assertEqual(self.ask(role='owner').status_code, 200)
+        self.assertEqual(self.roles(), [])
+
+    def test_unknown_user_is_not_created_unless_the_system_allows_it(self):
+        self.assertEqual(self.ask(username='tariro', role='clerk').status_code, 404)
+        self.assertFalse(User.objects.filter(username='tariro').exists())
+
+    @override_settings(JM_CONNECT_CREATE_USERS=True)
+    def test_new_person_gets_an_account_with_their_level(self):
+        response = self.ask(username='tariro', role='clerk', first_name='Tariro', last_name='Moyo', email='t@example.com')
+        self.assertEqual(response.status_code, 200)
+        user = User.objects.get(username='tariro')
+        self.assertEqual((user.first_name, user.email), ('Tariro', 't@example.com'))
+        self.assertFalse(user.has_usable_password())
+        self.assertEqual(self.roles('tariro'), ['clerk'])
+
+    @override_settings(JM_CONNECT_CREATE_USERS=True)
+    def test_new_person_with_an_unknown_level_gets_no_account(self):
+        self.assertEqual(self.ask(username='tariro', role='owner').status_code, 400)
+        self.assertFalse(User.objects.filter(username='tariro').exists())
+
+    @override_settings(JM_CONNECT_CREATE_USERS=True)
+    def test_deactivated_person_is_not_brought_back(self):
+        self.user.is_active = False
+        self.user.save()
+        self.assertEqual(self.ask(role='clerk').status_code, 404)
+        self.assertEqual(self.roles(), [])
 
 
 class ClientTests(SimpleTestCase):
