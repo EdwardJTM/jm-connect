@@ -5,11 +5,12 @@ The small Django app every Junior Marima system installs. It gives a system:
 - **API keys with scopes**: `SystemAPIKey` and the `HasScope` permission.
 - **A client** for calling another system: `system('requisitions').get('/api/v1/summary/')`.
 - **One-time sign-in**: the hub asks a system for a sign-in link for a username, then sends the person's browser to it.
+- **Access levels**: the hub sends the person's level in that system with each sign-in, and the system applies it.
 
 ## Install in a system
 
 ```
-jm-connect @ git+https://github.com/EdwardJTM/jm-connect.git@v0.1.0
+jm-connect @ git+https://github.com/EdwardJTM/jm-connect.git@v0.2.0
 ```
 
 ```python
@@ -21,6 +22,9 @@ urlpatterns += [path('', include('jm_connect.urls'))]
 ```
 
 Run `python manage.py migrate`. Give each system its own `SESSION_COOKIE_NAME` and `CSRF_COOKIE_NAME`.
+
+People arrive at `LOGIN_REDIRECT_URL`. If that is the Django admin but staff work elsewhere, set
+`JM_CONNECT_REDIRECT_URL = '/'` to send people from the hub there instead.
 
 ## Keys
 
@@ -55,6 +59,24 @@ To replace a key, create a new one, update the caller's `.env`, restart the call
 
 Keys stay on servers: never in JavaScript, templates or git. Outside your own computer, use HTTPS. A key with the
 `handoff` scope can sign in as any active user of that system, so treat it like an admin password.
+
+## Access levels
+
+JM Hub decides each person's level in each system, such as `Stores clerk` in Requisitions. It sends that level as
+`role` with every sign-in request, together with the person's name and email. A system acts on it only if it opts in:
+
+```python
+JM_CONNECT_APPLY_ROLE = 'core.roles.apply_hub_role'  # a function (user, role) that gives the user that role
+JM_CONNECT_CREATE_USERS = True                       # create an account the first time a new person arrives
+```
+
+The function raises `jm_connect.views.UnknownRole` for a level the system does not have. The person then gets no link
+and nothing changes. Because the level is applied on every sign-in, the hub is where levels are changed; a change made
+inside the system lasts only until the person next arrives from the hub. Accounts created this way have no password, so
+the person enters through the hub. A system without these settings ignores the level and signs in existing users only.
+
+With these settings, a key with the `handoff` scope can also create accounts and give any level, so guard it even more
+closely.
 
 ## Protect an endpoint
 
